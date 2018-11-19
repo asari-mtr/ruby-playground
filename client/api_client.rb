@@ -1,4 +1,6 @@
-class SftpClient
+require_relative './base_client.rb'
+
+class ApiClient < BaseClient
   # push down
   def export(file, i, total)
     FileUtils.cp(file.path, output_file_path(output_file_name(i, total)))

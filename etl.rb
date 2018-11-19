@@ -2,7 +2,8 @@ require 'zlib'
 require 'tempfile'
 require 'securerandom'
 require_relative './first_segment.rb'
-require_relative './sftp_client.rb'
+require_relative './client/sftp_client.rb'
+require_relative './client/api_client.rb'
 
 class Etl
   # dest is facebook, twitter, instagram ...
@@ -27,10 +28,12 @@ class Etl
         converted_file_list = convert(uuid_list)
 
         log("start to export")
-        result = export(converted_file_list)
+        # result = export(converted_file_list)
+        result = export(converted_file_list, Export.new(@client))
       else
         log("start to reexport")
-        result = reexport(backup_file_list)
+        # result = reexport(backup_file_list)
+        result = export(backup_file_list, ReExport.new(@client))
       end
     rescue => e
       result = e.message
@@ -66,81 +69,44 @@ class Etl
     end
   end
 
-  def export(converted_segment_list)
+  def export(file_list, action)
     result = nil
     completed = true
-    converted_segment_list.each_with_index do |temp_file, i|
-      total = converted_segment_list.size
-      file_name = @client.output_file_name(i, total)
+    total = file_list.size
+    file_list.each_with_index do |file, i|
+      file_name = action.output_file_name(i, total)
       begin
-        log("Export #{@client.output_file_path(file_name)} #{temp_file.size}")
-        file_size = temp_file.size
+        file_size = file.size
+        log(action.class.name)
+        # log("ReExport #{file.path} (#{file_size})")
+        # log("Export #{@client.output_file_path(file_name)} #{temp_file_size}")
         if file_size + @send_size > @client.limit[:limit_size]
-          # export only
-          backup(temp_file, file_name)
+          action.backup(file, file_name)
           completed = false
           next
         end
 
         @send_size += file_size + @send_size
 
-        result = @client.export(temp_file, i, total)
+        result = action.export(file, i, total)
         break if result != "success"
+
+        action.post_process(file)
 
         sleep (1.0 / @client.limit[:sec_per_request])
       rescue => e
         log(e.message)
         raise e
         # error
-        # error_handler_for_send(e, temp_file, i, total)
-        # @client.error_process(converted_segment_list, i)
-      end
-    end
-    # perform_later
-    raise "Incomplete" unless completed
-    result = "Not found" if converted_segment_list.size == 0
-    result
-  end
-
-  def reexport(backup_file_list)
-    result = nil
-    completed = true
-    backup_file_list.each_with_index do |backup_file, i|
-      begin
-        file_size = backup_file.size
-        log("ReExport #{backup_file.path} (#{file_size})")
-        if file_size + @send_size > @client.limit[:limit_size]
-          completed = false
-          next
-        end
-
-        @send_size += file_size + @send_size
-
-        # re-export
-        result = @client.export_from_backup(backup_file.path)
-        break if result != "success"
-
-        File.unlink(backup_file) # re-export only
-
-        sleep (1.0 / @client.limit[:sec_per_request])
-      rescue => e
-        log(e.message)
-        raise e
-        # error
-        # error_handler_for_export(e, backup_file)
+        # error_handler_for_export(e, file)
         # @client.error_process(backup_file_list)
       end
     end
     # perform_later
     raise "Incomplete" unless completed
+    # TODO: Check here?
+    result = "Not found" if file_list.size == 0
     result
-  end
-
-
-  def backup(temp_file, file_name)
-    backup_file_path = @client.backup_file_path(file_name)
-    log("Backup to #{backup_file_path}")
-    FileUtils.cp(temp_file.path, backup_file_path)
   end
 
   class Export
@@ -148,17 +114,27 @@ class Etl
       @segment = segment
     end
 
+    def output_file_name(i, total)
+      @segment.output_file_name(i, total)
+    end
+
     def backup(temp_file, file_name)
-      backup_file_path = segment.backup_file_path(file_name)
+      backup_file_path = @segment.backup_file_path(file_name)
       log("Backup to #{backup_file_path}")
       FileUtils.cp(temp_file.path, backup_file_path)
     end
 
-    def export(path)
-      @segment.export(temp_file, file_name)
+    def export(file, i, total)
+      @segment.export(file, i, total)
     end
 
-    def post_process(path)
+    def post_process(file)
+    end
+
+    private
+    # TODO: duplicate
+    def log(str)
+      puts "#{Time.now.strftime('%Y/%m/%d %H:%M:%S')} #{str}"
     end
   end
 
@@ -167,15 +143,24 @@ class Etl
       @segment = segment
     end
 
+    def output_file_name(i, total)
+    end
+
     def backup(temp_file, file_name)
     end
 
-    def export(path)
-      @segment.export_from_backup(path)
+    def export(file, i, total)
+      @segment.export_from_backup(file)
     end
 
-    def post_process(path)
-      File.unlink(path)
+    def post_process(file)
+      File.unlink(file.path)
+    end
+
+    private
+    # TODO: duplicate
+    def log(str)
+      puts "#{Time.now.strftime('%Y/%m/%d %H:%M:%S')} #{str}"
     end
   end
 
