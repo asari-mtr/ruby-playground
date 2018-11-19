@@ -1,4 +1,4 @@
-class FacebookClient
+class SftpClient
   # push down
   def export(file, i, total)
     FileUtils.cp(file.path, output_file_path(output_file_name(i, total)))
@@ -33,9 +33,9 @@ class FacebookClient
   # push down
   def limit
     @limi_for_api ||= {
-      uuid_per_request: 3_000_000,
+      uuid_per_request: 300_000,
       sec_per_request: 5,
-      limit_size: 20_000_000,
+      limit_size: 2_000_000,
     }
   end
 
