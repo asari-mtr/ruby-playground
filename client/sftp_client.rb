@@ -1,12 +1,12 @@
 require_relative './base_client.rb'
 
 class SftpClient < BaseClient
-  def export(file, i, total)
-    FileUtils.cp(file.path, output_file_path(output_file_name(i, total)))
+  def export(file, i, total, type)
+    FileUtils.cp(file.path, output_file_path(output_file_name(i, total, type)))
     "success"
   end
 
-  def export_from_backup(backup_file)
+  def export_from_backup(backup_file, type)
     FileUtils.cp(backup_file.path, backup_to_output_path(backup_file.path))
     "success"
   end
@@ -20,7 +20,7 @@ class SftpClient < BaseClient
     }
   end
 
-  def uuid_to_format(uuid)
+  def uuid_to_format(uuid, type)
     "{hgoijeifjweoijfa: #{uuid}}"
   end
 
@@ -28,7 +28,7 @@ class SftpClient < BaseClient
     true
   end
 
-  def output_file_name(index, total)
+  def output_file_name(index, total, type)
     if total == 1
       "hogehoge.txt.gz"
     else
@@ -43,7 +43,7 @@ class SftpClient < BaseClient
   end
 
   def backup_to_output_path(backup_file_name)
-    orig_name = File.basename(backup_file_name).match(/^[^_]+_[^_]+_(.*)/).captures.first
+    orig_name = original_file_from_backup_file_name(backup_file_name)
     "output/#{orig_name}"
   end
 end
