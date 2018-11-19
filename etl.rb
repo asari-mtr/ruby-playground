@@ -29,6 +29,7 @@ class Etl
         log("start to export")
         result = export(converted_file_list)
       else
+        log("start to reexport")
         result = reexport(backup_file_list)
       end
     rescue => e
@@ -72,7 +73,7 @@ class Etl
       total = converted_segment_list.size
       file_name = @fb.output_file_name(i, total)
       begin
-        log("Export #{@fb.output_file_path(i, total)} #{temp_file.size}")
+        log("Export #{@fb.output_file_path(file_name)} #{temp_file.size}")
         file_size = temp_file.size
         if file_size + @send_size > @fb.limit[:limit_size]
           # export only
@@ -83,12 +84,13 @@ class Etl
 
         @send_size += file_size + @send_size
 
-        # TODO:  @fb.export(temp_file, i, total)
-        result = @fb.export(temp_file, file_name)
+        result = @fb.export(temp_file, i, total)
         break if result != "success"
 
         sleep (1.0 / @fb.limit[:sec_per_request])
       rescue => e
+        log(e.message)
+        raise e
         # error
         # error_handler_for_send(e, temp_file, i, total)
         # @fb.error_process(converted_segment_list, i)
@@ -122,6 +124,8 @@ class Etl
 
         sleep (1.0 / @fb.limit[:sec_per_request])
       rescue => e
+        log(e.message)
+        raise e
         # error
         # error_handler_for_export(e, backup_file)
         # @fb.error_process(backup_file_list)
@@ -132,6 +136,12 @@ class Etl
     result
   end
 
+
+  def backup(temp_file, file_name)
+    backup_file_path = @fb.backup_file_path(file_name)
+    log("Backup to #{backup_file_path}")
+    FileUtils.cp(temp_file.path, backup_file_path)
+  end
 
   class Export
     def initialize(segment)
@@ -145,7 +155,7 @@ class Etl
     end
 
     def export(path)
-      @segmentexport(temp_file, file_name)
+      @segment.export(temp_file, file_name)
     end
 
     def post_process(path)
