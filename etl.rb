@@ -80,7 +80,7 @@ class Etl
         log(action.class.name)
         # log("ReExport #{file.path} (#{file_size})")
         # log("Export #{@client.output_file_path(file_name)} #{temp_file_size}")
-        if file_size + @send_size > @client.limit[:limit_size]
+        if file_size + @send_size > @client.limit[:limit_size_per_hour]
           action.backup(file, file_name)
           completed = false
           next
@@ -119,6 +119,7 @@ class Etl
     end
 
     def backup(temp_file, file_name)
+      FileUtils.mkdir_p(@segment.backup_base_path)
       backup_file_path = @segment.backup_file_path(file_name)
       log("Backup to #{backup_file_path}")
       FileUtils.cp(temp_file.path, backup_file_path)
