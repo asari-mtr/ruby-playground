@@ -89,4 +89,8 @@ class BaseClient
     "#{backup_prefix}_#{type}_#{file_name}"
   end
 
+  def original_file_from_backup_file_name(backup_file_name)
+    File.basename(backup_file_name).match(/^#{backup_prefix}_[^_]+_(.*)/).captures.first
+  end
+
 end

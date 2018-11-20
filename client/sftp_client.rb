@@ -2,6 +2,7 @@ require_relative './base_client.rb'
 
 class SftpClient < BaseClient
   def export(file, i, total, type)
+    FileUtils.mkdir_p(output_base_path)
     FileUtils.cp(file.path, output_file_path(output_file_name(i, total, type)))
     "success"
   end
@@ -38,12 +39,16 @@ class SftpClient < BaseClient
 
   private
 
+  def output_base_path
+    "output"
+  end
+
   def output_file_path(file_name)
-    "output/#{file_name}"
+    "#{output_base_path}/#{file_name}"
   end
 
   def backup_to_output_path(backup_file_name)
     orig_name = original_file_from_backup_file_name(backup_file_name)
-    "output/#{orig_name}"
+    "#{output_base_path}/#{orig_name}"
   end
 end
